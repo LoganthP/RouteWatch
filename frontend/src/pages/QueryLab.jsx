@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Circle, Marker } from 'react-leaflet';
-import { Gauge, Play } from 'lucide-react';
+import { Gauge, Play, XCircle } from 'lucide-react';
 import api, { errMsg } from '../api/client';
 import { BaseMap, ClickToPick, FlyTo, MapToolbar, pickIcon } from '../components/MapParts';
 import useApi from '../lib/useApi';
@@ -10,11 +10,39 @@ import { ClayButton, EmptyState, ErrorBanner, Glass, PageHeader, Segmented } fro
 import { MYSURU } from '../lib/constants';
 import { fmtNum } from '../lib/format';
 
-function ResultBlock({ title, rows }) {
+function ResultBlock({ title, rows, pageSize = 100 }) {
+  const [page, setPage] = useState(1);
   const chart = safeArr(rows).map((r) => ({ name: r.usedIndex ? 'Index' : 'Scan', label: r.label, docs: r.docsExamined, keys: r.keysExamined, ms: r.timeMs, idx: r.usedIndex }));
+
+  const total = rows?.length || 0;
+  const startIdx = (page - 1) * pageSize;
+  const pageRows = safeArr(rows).slice(startIdx, startIdx + pageSize);
+  const totalPages = Math.ceil(total / pageSize) || 1;
+
   return (
     <Glass className="p-5 sm:p-6">
-      <h2 className="mb-1 text-xl font-bold">{title}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <h2 className="text-xl font-bold">{title}</h2>
+        {total > pageSize && (
+          <div className="flex items-center gap-2 text-xs">
+            <span>Page {page} of {totalPages}</span>
+            <button
+              disabled={page <= 1}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              className="neu-chip px-2 py-1 disabled:opacity-40"
+            >
+              Prev
+            </button>
+            <button
+              disabled={page >= totalPages}
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              className="neu-chip px-2 py-1 disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </div>
       <p className="mb-4 text-sm text-ink-soft">Documents examined per query. Lower means the database did less work.</p>
       <div className="h-56">
         <ResponsiveContainer>
@@ -35,7 +63,7 @@ function ResultBlock({ title, rows }) {
             <tr className="text-ink-soft">{['Query', 'Plan', 'Returned', 'Keys examined', 'Docs examined', 'Time'].map((h) => <th key={h} scope="col" className="px-3 py-2 font-bold">{h}</th>)}</tr>
           </thead>
           <tbody>
-            {safeArr(rows).map((r) => (
+            {pageRows.map((r) => (
               <tr key={r.label} className="border-t border-white/70">
                 <td className="px-3 py-2.5 font-semibold">{r.label}</td>
                 <td className="px-3 py-2.5"><code className={`rounded-lg px-2 py-1 text-xs font-bold ${r.usedIndex ? 'bg-mint-soft text-mint-deep' : 'bg-coral-soft text-coral'}`}>{r.stages}</code></td>
@@ -65,15 +93,36 @@ export default function QueryLab() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const abortRef = useRef(null);
 
   const run = async () => {
+    const controller = new AbortController();
+    abortRef.current = controller;
     setBusy(true); setError('');
     try {
-      const { data } = await api.get('/analytics/performance', { params: { lat: center[0], lng: center[1], radius } });
+      const { data } = await api.get('/analytics/performance', {
+        params: { lat: center[0], lng: center[1], radius },
+        signal: controller.signal,
+        timeout: 10000,
+      });
       setResult(data);
-    } catch (e) { setError(errMsg(e)); }
-    finally { setBusy(false); }
+    } catch (e) {
+      if (e.name !== 'CanceledError' && !e.message?.includes('canceled')) {
+        setError(errMsg(e));
+      }
+    } finally {
+      setBusy(false);
+    }
   };
+
+  const cancel = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      setBusy(false);
+    }
+  };
+
+  const heavyScans = [...safeArr(result?.geo), ...safeArr(result?.attribute)].filter(r => r.docsExamined > 1000);
 
   return (
     <div>
@@ -91,10 +140,10 @@ export default function QueryLab() {
         <Glass className="flex flex-col p-6">
           <p className="label">Radius</p>
           <Segmented value={radius} onChange={setRadius} options={[{ value: 1000, label: '1 km' }, { value: 2000, label: '2 km' }, { value: 5000, label: '5 km' }]} />
-          <p className="label mt-5">Queries that will run</p>
+          <p className="label mt-5">Queries that will run (with 10s server maxTimeMS)</p>
           <pre className="scroll-thin overflow-x-auto rounded-2xl bg-[#EEF4FC] p-4 text-xs leading-relaxed text-ink shadow-neu-in">{`db.incidents.find({ location: { $near: {
   $geometry: { type: "Point", coordinates: [${safeFixed(center[1])}, ${safeFixed(center[0])}] },
-  $maxDistance: ${radius} } } }).explain("executionStats")
+  $maxDistance: ${radius} } } }).maxTimeMS(10000).explain("executionStats")
 
 db.incidents.find({ location: { $geoWithin: {
   $centerSphere: [[${safeFixed(center[1])}, ${safeFixed(center[0])}], ${radius} / 6378100] } } })
@@ -102,18 +151,39 @@ db.incidents.find({ location: { $geoWithin: {
 
 db.incidents.find({ severity: "Critical", status: "Pending" })
   // compound index vs .hint({ $natural: 1 })`}</pre>
-          <ClayButton className="mt-5 self-start" loading={busy} onClick={run}><Play className="h-4 w-4" /> Run comparison</ClayButton>
+          <div className="mt-5 flex items-center gap-3">
+            <ClayButton loading={busy} onClick={run}>
+              <Play className="h-4 w-4" /> Run comparison
+            </ClayButton>
+            {busy && (
+              <ClayButton variant="white" onClick={cancel}>
+                <XCircle className="h-4 w-4 text-coral" /> Cancel
+              </ClayButton>
+            )}
+          </div>
           <p className="mt-3 text-xs text-ink-faint">Click the map to change the point. Timings vary between runs; documents examined is the steadier measure.</p>
         </Glass>
       </div>
 
       <div className="mt-5 space-y-5">
         <ErrorBanner message={error} />
+        {heavyScans.length > 0 && (
+          <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 shadow-sm">
+            <p className="font-bold">⚠️ Warning: High Document Scan Detected</p>
+            <ul className="mt-1.5 list-disc pl-5 text-xs space-y-1">
+              {heavyScans.map((s) => (
+                <li key={s.label}>
+                  <strong>{s.label}</strong> scans <strong>{fmtNum(s.docsExamined)} documents</strong> ({s.timeMs} ms). Consider index-backed queries to avoid full scans.
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {result ? (
           <>
             <p className="font-semibold text-ink-soft">Collection size: <span className="font-display text-lg font-extrabold text-ink">{fmtNum(result.collectionSize)}</span> documents</p>
-            <ResultBlock title="Geospatial search" rows={result.geo} />
-            <ResultBlock title="Attribute filter" rows={result.attribute} />
+            <ResultBlock title="Geospatial search" rows={result.geo} pageSize={100} />
+            <ResultBlock title="Attribute filter" rows={result.attribute} pageSize={100} />
           </>
         ) : (
           <Glass><EmptyState icon={Gauge} title="No comparison yet">Pick a point and radius, then run the comparison to see index scans against full collection scans.</EmptyState></Glass>

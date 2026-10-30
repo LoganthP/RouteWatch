@@ -21,23 +21,43 @@ function StorageBar({ storage, projectedMB }) {
   if (!storage) return null;
   const quota = storage.quotaMB || 0;
   const used = storage.usedMB || 0;
+  const dbMB = storage.dbStorageMB !== undefined ? storage.dbStorageMB : used;
+  const filesMB = storage.filesMB !== undefined ? storage.filesMB : 0;
   const pctUsed = quota ? Math.min(100, (used / quota) * 100) : 0;
   const pctProj = quota && projectedMB ? Math.min(100 - pctUsed, (projectedMB / quota) * 100) : 0;
-  const over = quota && used + (projectedMB || 0) > quota * 0.8;
+  const over80 = quota && used + (projectedMB || 0) >= quota * 0.8;
+  const over90 = quota && used + (projectedMB || 0) >= quota * 0.9;
   return (
     <div className="rounded-2xl bg-white/70 px-4 py-3 shadow-clay-white">
-      <p className="mb-2 flex flex-wrap items-center gap-2 text-sm font-semibold">
-        <HardDrive className="h-4 w-4 text-sky" />
-        Database storage: {used.toFixed(1)} MB{quota ? ` of ${quota} MB used (${pctUsed.toFixed(1)}%)` : ' used (no limit set)'}
-        {projectedMB ? <span className="text-ink-soft">, this import adds about {projectedMB.toFixed(1)} MB</span> : null}
-      </p>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm font-semibold">
+        <span className="flex items-center gap-2">
+          <HardDrive className="h-4 w-4 text-sky" />
+          Storage: {used.toFixed(1)} MB{quota ? ` of ${quota} MB used (${pctUsed.toFixed(1)}%)` : ' used (no limit set)'}
+          <span className="text-xs font-normal text-ink-soft">({dbMB.toFixed(1)} MB DB, {filesMB.toFixed(1)} MB files)</span>
+        </span>
+        {storage.tierName && (
+          <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+            {storage.tierName}
+          </span>
+        )}
+      </div>
+      {storage.isAtlasM0 && (
+        <p className="mb-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
+          <strong>MongoDB Atlas M0 Free Tier (512 MB hard cap):</strong> The free tier limit cannot be expanded in software. To increase quota to 1 GB or higher, migrate to local MongoDB or upgrade to an Atlas paid tier (M10+).
+        </p>
+      )}
       {quota > 0 && (
         <div className="flex h-2.5 overflow-hidden rounded-full bg-[#EEF4FC] shadow-neu-in">
           <div className="h-full bg-sky" style={{ width: `${pctUsed}%` }} />
-          <div className={`h-full ${over ? 'bg-coral' : 'bg-sun'}`} style={{ width: `${pctProj}%` }} />
+          <div className={`h-full ${over90 ? 'bg-rose-600' : over80 ? 'bg-coral' : 'bg-sun'}`} style={{ width: `${pctProj}%` }} />
         </div>
       )}
-      {over ? <p className="mt-2 text-xs font-bold text-coral">This would pass 80% of the quota. The import stops automatically at that point; lower the row limit to fit.</p> : null}
+      {projectedMB ? <p className="mt-1 text-xs text-ink-soft">Projected addition: +{projectedMB.toFixed(1)} MB (~{(used + projectedMB).toFixed(1)} MB total)</p> : null}
+      {over90 ? (
+        <p className="mt-2 text-xs font-bold text-rose-600">CRITICAL: Storage would exceed 90% of quota! Reduce row count before importing.</p>
+      ) : over80 ? (
+        <p className="mt-2 text-xs font-bold text-coral">Warning: Storage would pass 80% of quota. The import stops automatically at 95% capacity; lower the row limit to fit.</p>
+      ) : null}
     </div>
   );
 }

@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import api, { errMsg } from '../api/client';
 
-/** GET helper with 12s timeout & AbortController; refetches when `params` change or reload() is called. */
-export default function useApi(path, params, { skip = false, timeout = 12000 } = {}) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(!skip);
+// Client-side SWR cache for instant page loads
+const clientCache = new Map();
+
+/** GET helper with 12s timeout & AbortController; serves stale cache instantly while revalidating. */
+export default function useApi(path, params, { skip = false, timeout = 12000, staleTime = 30000 } = {}) {
+  const key = path ? `${path}:${JSON.stringify(params || {})}` : '';
+  const initialEntry = clientCache.get(key);
+
+  const [data, setData] = useState(() => (initialEntry ? initialEntry.data : null));
+  const [loading, setLoading] = useState(() => (!skip && (!initialEntry || Date.now() - initialEntry.ts > staleTime)));
   const [error, setError] = useState('');
   const [reloadNonce, setReloadNonce] = useState(0);
-  const key = JSON.stringify(params || {});
   const seq = useRef(0);
 
   const reload = useCallback(() => {
@@ -20,6 +25,15 @@ export default function useApi(path, params, { skip = false, timeout = 12000 } =
       return undefined;
     }
 
+    const cached = clientCache.get(key);
+    if (cached && cached.data) {
+      setData(cached.data);
+      if (Date.now() - cached.ts < staleTime && reloadNonce === 0) {
+        setLoading(false);
+        return undefined;
+      }
+    }
+
     let active = true;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
@@ -27,27 +41,28 @@ export default function useApi(path, params, { skip = false, timeout = 12000 } =
     }, timeout);
 
     const id = ++seq.current;
-    setLoading(true);
+    if (!data && !cached) setLoading(true);
     setError('');
 
     api.get(path, {
-      params: JSON.parse(key),
+      params: params || {},
       signal: controller.signal,
     })
       .then((r) => {
         if (active && id === seq.current) {
           setData(r.data);
+          clientCache.set(key, { data: r.data, ts: Date.now() });
           setError('');
           setLoading(false);
         }
       })
       .catch((e) => {
         if (active && id === seq.current) {
+          // If aborted due to new params / debounce, silently ignore
           if (e.name === 'CanceledError' || e.code === 'ERR_CANCELED' || e.message?.includes('canceled')) {
-            setError('Request timed out (12s limit).');
-          } else {
-            setError(errMsg(e));
+            return;
           }
+          setError(errMsg(e));
           setLoading(false);
         }
       })
@@ -58,9 +73,8 @@ export default function useApi(path, params, { skip = false, timeout = 12000 } =
     return () => {
       active = false;
       controller.abort();
-      clearTimeout(timeoutId);
     };
-  }, [path, key, skip, timeout, reloadNonce]);
+  }, [path, key, reloadNonce, skip, timeout, staleTime]);
 
   return { data, loading, error, reload, setData };
 }
@@ -103,6 +117,9 @@ export function useLiveRefresh(cb) {
 /** Debounce a changing value. */
 export function useDebounced(value, ms = 400) {
   const [v, setV] = useState(value);
-  useEffect(() => { const t = setTimeout(() => setV(value), ms); return () => clearTimeout(t); }, [value, ms]);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
   return v;
 }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Area, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Circle, CircleMarker, Marker, Polygon, Tooltip as LTooltip } from 'react-leaflet';
-import { BrainCircuit, Play, Sparkles, Target, TrendingUp, WifiOff, MousePointerClick } from 'lucide-react';
+import { BrainCircuit, RotateCcw, Play, Sparkles, Target, TrendingUp, WifiOff, MousePointerClick } from 'lucide-react';
 import api, { errMsg } from '../api/client';
 import useApi from '../lib/useApi';
 import { useAuth } from '../context/AuthContext';
