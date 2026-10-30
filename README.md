@@ -562,19 +562,3 @@ RouteWatch/
 | PowerShell blocks venv activation | Run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once. |
 | Grey map | Map tiles need an internet connection (OpenStreetMap raster tiles). |
 | Import stopped at "storage limit" | Delete old datasets (*Report incident → Imported datasets*) or lower the row limit. |
-
-<img src="assets/divider.svg" width="100%" alt=""/>
-
-## 👨‍💻 Author
-
-**Loganth P**, final-year B.E. Computer Science and Engineering, Vidyavardhaka College of Engineering, Mysuru.
-
-[![GitHub](https://img.shields.io/badge/GitHub-LoganthP-181717?style=for-the-badge&logo=github)](https://github.com/LoganthP)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Loganth%20P-0A66C2?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/loganth-p-158667280/)
-[![Email](https://img.shields.io/badge/Email-loganthp55%40gmail.com-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:loganthp55@gmail.com)
-
-<div align="center">
-
-⭐ If you find RouteWatch useful, consider starring the repository.
-
-</div>
