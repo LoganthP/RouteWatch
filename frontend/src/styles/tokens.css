@@ -1,0 +1,78 @@
+/**
+ * RouteWatch Design Tokens
+ * Extracted from existing Tailwind config, AuthShell, Layout, ui.jsx, and index.css
+ */
+:root {
+  /* Brand palette */
+  --rw-sky: #2E9BFF;
+  --rw-sky-soft: #DCEEFF;
+  --rw-sky-deep: #1677E0;
+
+  --rw-sun: #FFC93C;
+  --rw-sun-soft: #FFF3CC;
+  --rw-sun-deep: #E8A800;
+
+  --rw-coral: #FF4D6D;
+  --rw-coral-soft: #FFE1E7;
+
+  --rw-tangerine: #FF8A3D;
+  --rw-tangerine-soft: #FFE8D6;
+
+  --rw-mint: #2BD9A6;
+  --rw-mint-soft: #D7F8EE;
+  --rw-mint-deep: #13A87C;
+
+  --rw-lilac: #9B8CFF;
+  --rw-lilac-soft: #ECE8FF;
+
+  --rw-ink: #1E2A44;
+  --rw-ink-soft: #5B6B8C;
+  --rw-ink-faint: #8F9BB5;
+
+  --rw-cloud: #F3F8FF;
+  --rw-canvas: #EEF6FF;
+
+  /* Road & illustration palette */
+  --rw-road-navy: #3B4A6B;
+  --rw-road-dark: #1E2A44;
+  --rw-road-line: #FFC93C;
+  --rw-sign-red: #FF4D6D;
+  --rw-sign-yellow: #FFC93C;
+  --rw-sign-green: #2BD9A6;
+
+  /* Atmospheric washes */
+  --rw-wash-blue: #8CCBFF;
+  --rw-wash-sky: #B9E2FF;
+  --rw-wash-sun: #FFD66B;
+  --rw-wash-peach: #FFE79A;
+  --rw-wash-mint: #9EF0D4;
+  --rw-wash-coral: #FFB3C2;
+
+  /* Typography */
+  --rw-font-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+  --rw-font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+
+  /* Surfaces & Radii */
+  --rw-radius-sm: 12px;
+  --rw-radius-md: 18px;
+  --rw-radius-lg: 24px;
+  --rw-radius-xl: 28px;
+  --rw-radius-2xl: 36px;
+
+  /* Glassmorphism */
+  --rw-glass-bg: rgba(255, 255, 255, 0.65);
+  --rw-glass-border: rgba(255, 255, 255, 0.85);
+  --rw-glass-blur: blur(22px) saturate(160%);
+  --rw-glass-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 18px 40px -18px rgba(46, 95, 170, 0.28);
+  --rw-lift-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 28px 60px -20px rgba(46, 95, 170, 0.38);
+
+  /* Claymorphism */
+  --rw-clay-sky-shadow: 0 12px 22px -10px rgba(22, 119, 224, 0.6), inset 0 -4px 0 rgba(0, 0, 0, 0.12), inset 0 3px 0 rgba(255, 255, 255, 0.45);
+  --rw-clay-sun-shadow: 0 12px 22px -10px rgba(232, 168, 0, 0.55), inset 0 -4px 0 rgba(0, 0, 0, 0.08), inset 0 3px 0 rgba(255, 255, 255, 0.6);
+  --rw-clay-white-shadow: 0 10px 20px -12px rgba(46, 95, 170, 0.45), inset 0 -3px 0 rgba(46, 95, 170, 0.08), inset 0 2px 0 #ffffff;
+
+  /* Neumorphism */
+  --rw-neu-shadow: 6px 6px 14px #d2dcec, -6px -6px 14px #ffffff;
+  --rw-neu-in-shadow: inset 4px 4px 9px #d2dcec, inset -4px -4px 9px #ffffff;
+}
+
