@@ -17,7 +17,8 @@
     "test:ml": "node scripts/ml-test.js",
     "verify:sidebar": "node scripts/verify-sidebar.js",
     "benchmark:baseline": "node scripts/benchmark-baseline.js",
-    "benchmark:pages": "node scripts/measure-page-performance.js"
+    "benchmark:pages": "node scripts/measure-page-performance.js",
+    "check": "node scripts/check.js"
   },
   "engines": {
     "node": ">=18.17"

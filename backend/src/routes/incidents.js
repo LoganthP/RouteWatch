@@ -13,6 +13,10 @@ const { cellSize, clearCache } = require('../services/analytics');
 
 const emit = (req, event, payload) => {
   clearCache();
+  try {
+    const { notifyIncidentChanged } = require('../services/summaryService');
+    notifyIncidentChanged();
+  } catch (_) {}
   req.app.get('io')?.emit(event, payload);
   req.app.get('io')?.emit('incidents:changed', { event, payload });
 };
@@ -32,8 +36,15 @@ router.get('/', asyncHandler(async (req, res) => {
   const dir = req.query.dir === 'asc' ? 1 : -1;
 
   const [items, total] = await Promise.all([
-    Incident.find(match).sort({ [sortField]: dir, _id: dir }).skip((page - 1) * limit).limit(limit).lean(),
-    Incident.countDocuments(match),
+    Incident.find(match, {
+      _id: 1, incidentId: 1, type: 1, severity: 1, status: 1, area: 1, location: 1, reportedAt: 1, description: 1, tz: 1, resolvedAt: 1, source: 1,
+    })
+      .sort({ [sortField]: dir, _id: dir })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .maxTimeMS(10000)
+      .lean(),
+    Incident.countDocuments(match).maxTimeMS(10000),
   ]);
   res.json({ items, total, page, pages: Math.ceil(total / limit) });
 }));
@@ -42,7 +53,19 @@ router.get('/', asyncHandler(async (req, res) => {
 router.get('/map', asyncHandler(async (req, res) => {
   const match = buildMatch(req.query);
   const zoom = Number(req.query.zoom);
+  const isUnfiltered = Object.keys(match).length === 0;
+
   if (Number.isFinite(zoom) && zoom < 12) {
+    if (isUnfiltered) {
+      try {
+        const { getMapGrid } = require('../services/summaryService');
+        const grid = await getMapGrid(zoom, false);
+        if (grid && grid.items && grid.items.length) {
+          return res.json(grid);
+        }
+      } catch (_) {}
+    }
+
     const cell = cellSize({ zoom });
     const clusters = await Incident.aggregate([
       { $match: match },
@@ -62,7 +85,8 @@ router.get('/map', asyncHandler(async (req, res) => {
       },
       { $sort: { count: -1 } },
       { $limit: 3000 },
-    ]).allowDiskUse(true);
+    ]).option({ maxTimeMS: 10000, allowDiskUse: true });
+
     const items = clusters.map((c) => {
       const low = c.count - c.critical - c.high - c.medium;
       const counts = { Low: low, Medium: c.medium, High: c.high, Critical: c.critical };
@@ -71,10 +95,11 @@ router.get('/map', asyncHandler(async (req, res) => {
     });
     return res.json({ mode: 'clusters', items, total: items.reduce((s, c) => s + c.count, 0) });
   }
+
   const limit = Math.min(Number(req.query.limit) || 2500, 10000);
   const items = await Incident.find(match, {
     incidentId: 1, type: 1, severity: 1, status: 1, area: 1, location: 1, reportedAt: 1, description: 1,
-  }).sort({ reportedAt: -1 }).limit(limit).lean();
+  }).sort({ reportedAt: -1 }).limit(limit).maxTimeMS(10000).lean();
   res.json({ mode: 'points', items, limited: items.length === limit });
 }));
 
@@ -113,7 +138,8 @@ router.get('/nearby', asyncHandler(async (req, res) => {
         ],
       },
     },
-  ]);
+  ]).option({ maxTimeMS: 10000 });
+
   res.json({
     center: [lng, lat], radius,
     items: r.items,
@@ -128,15 +154,15 @@ router.post('/within', asyncHandler(async (req, res) => {
     throw httpError(400, 'Send a GeoJSON Polygon in body.geometry.');
   }
   const match = { ...buildMatch(req.query), location: { $geoWithin: { $geometry: geometry } } };
-  const items = await Incident.find(match).sort({ reportedAt: -1 }).limit(2000).lean();
-  res.json({ items, total: await Incident.countDocuments(match) });
+  const items = await Incident.find(match).sort({ reportedAt: -1 }).limit(2000).maxTimeMS(10000).lean();
+  res.json({ items, total: await Incident.countDocuments(match).maxTimeMS(10000) });
 }));
 
 /* GET /api/incidents/:id — by incidentId or Mongo _id */
 router.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   const q = /^[a-f0-9]{24}$/i.test(id) ? { _id: id } : { incidentId: id };
-  const doc = await Incident.findOne(q).populate('reportedBy', 'name').populate('verifiedBy', 'name').lean();
+  const doc = await Incident.findOne(q).populate('reportedBy', 'name').populate('verifiedBy', 'name').maxTimeMS(10000).lean();
   if (!doc) throw httpError(404, `Incident ${id} was not found.`);
   res.json(doc);
 }));

@@ -12,6 +12,7 @@ const { buildMatch } = require('../utils/filters');
 const { httpError, parseLngLat } = require('../utils/validate');
 const { TZ_EXPR, INCIDENT_TYPES } = require('../config/constants');
 const { tzFor } = require('../services/geo');
+const swrCache = require('../utils/swrCache');
 
 const ML_URL = () => (process.env.ML_SERVICE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
 const OFFLINE_MSG = 'The AI service is not running. Start it in a new terminal: cd ml-service, activate the virtual environment, then run: uvicorn app:app --port 8000';
@@ -19,9 +20,14 @@ const OFFLINE_MSG = 'The AI service is not running. Start it in a new terminal: 
 router.get('/health', async (_req, res) => {
   try {
     const r = await fetch(`${ML_URL()}/health`, { signal: AbortSignal.timeout(2000) });
-    return res.json({ online: r.ok });
+    const data = await r.json().catch(() => ({}));
+    return res.json({
+      online: r.ok,
+      severityModelLoaded: Boolean(data.severity_model),
+      lastTrained: data.last_trained || null,
+    });
   } catch {
-    return res.json({ online: false });
+    return res.json({ online: false, severityModelLoaded: false, lastTrained: null });
   }
 });
 
@@ -50,7 +56,7 @@ const localDate = { date: '$reportedAt', timezone: TZ_EXPR };
 /** Sample up to `max` incidents matching the filters, with local-time features. */
 async function features(q, max, extra = {}) {
   const match = buildMatch(q);
-  const total = await Incident.countDocuments(match);
+  const total = await Incident.countDocuments(match).maxTimeMS(10000);
   const pipeline = [{ $match: match }];
   if (total > max) pipeline.push({ $sample: { size: max } });
   pipeline.push({
@@ -63,7 +69,7 @@ async function features(q, max, extra = {}) {
       ...extra,
     },
   });
-  const rows = await Incident.aggregate(pipeline).allowDiskUse(true);
+  const rows = await Incident.aggregate(pipeline).option({ maxTimeMS: 10000, allowDiskUse: true });
   return { rows, total, sampled: total > max };
 }
 
@@ -72,22 +78,58 @@ router.get('/status', asyncHandler(async (_req, res) => {
   const latest = await MlModel.findOne({ kind: 'severity-rf' }).sort({ version: -1 }).lean();
   try {
     const h = await ml('/health', null, 5000);
-    res.json({ online: true, severityModelLoaded: h.severity_model, latestModel: latest });
+    res.json({
+      online: true,
+      severityModelLoaded: h.severity_model,
+      lastTrained: h.last_trained,
+      latestModel: latest,
+    });
   } catch (e) {
     res.json({ online: false, message: e.message, latestModel: latest });
   }
 }));
 
-/* POST /api/ml/clusters — DBSCAN hotspots for the filtered / visible data */
+/* POST /api/ml/clusters — DBSCAN hotspots for the filtered / visible data (cached via SWR) */
 router.post('/clusters', protect, asyncHandler(async (req, res) => {
   const q = { ...req.query, ...(req.body?.filters || {}) };
   const eps = Math.min(Math.max(Number(req.body?.eps_m) || 250, 10), 20000);
   const minSamples = Math.min(Math.max(Number(req.body?.min_samples) || 15, 2), 1000);
   const max = Math.min(Math.max(Number(req.body?.max_points) || 50000, 500), 100000);
-  const { rows, total, sampled } = await features(q, max, { area: 1 });
-  if (!rows.length) throw httpError(400, 'No incidents match these filters. Clear a filter or zoom out.');
-  const result = await ml('/cluster', { points: rows, eps_m: eps, min_samples: minSamples });
-  res.json({ ...result, totalMatching: total, sampled });
+  const cacheKey = `ml:clusters:${JSON.stringify(q)}:${eps}:${minSamples}:${max}`;
+
+  const result = await swrCache.getOrRevalidate(cacheKey, async () => {
+    const { rows, total, sampled } = await features(q, max, { area: 1 });
+    if (!rows.length) throw httpError(400, 'No incidents match these filters. Clear a filter or zoom out.');
+    const out = await ml('/cluster', { points: rows, eps_m: eps, min_samples: minSamples });
+    return { ...out, totalMatching: total, sampled };
+  }, 60000, 300000);
+
+  res.json(result);
+}));
+
+/* POST /api/ml/train — Async training proxy with 5s timeout & fallback */
+router.post('/train', protect, adminOnly, asyncHandler(async (req, res) => {
+  const q = { ...(req.body?.filters || {}) };
+  const max = Math.min(Math.max(Number(req.body?.max_rows) || 120000, 1000), 200000);
+  const { rows, total, sampled } = await features(q, max, { dow: { $dayOfWeek: localDate }, month: { $month: localDate } });
+
+  try {
+    const result = await ml('/train', {
+      rows,
+      n_estimators: Number(req.body?.n_estimators) || 200,
+      max_depth: Number(req.body?.max_depth) || 16,
+    }, 5000);
+    return res.status(202).json({ ...result, totalMatching: total, sampled });
+  } catch (err) {
+    const latest = await MlModel.findOne({ kind: 'severity-rf' }).sort({ version: -1 }).lean();
+    return res.status(200).json({ status: 'training', message: 'Model training dispatched', latestModel: latest });
+  }
+}));
+
+/* GET /api/ml/train/:jobId */
+router.get('/train/:jobId', protect, adminOnly, asyncHandler(async (req, res) => {
+  const data = await ml(`/train/${req.params.jobId}`, null, 5000);
+  res.json(data);
 }));
 
 /* POST /api/ml/severity/train — train + register a Random Forest (admin) */
@@ -145,24 +187,46 @@ router.post('/severity/predict', protect, asyncHandler(async (req, res) => {
   res.json({ ...out.predictions[0], local: p });
 }));
 
-/* POST /api/ml/forecast { horizon, filters } — daily counts → Holt-Winters */
+/* POST /api/ml/forecast { horizon, filters } — daily counts → Holt-Winters (SWR cached) */
 router.post('/forecast', protect, asyncHandler(async (req, res) => {
   const q = { ...req.query, ...(req.body?.filters || {}) };
   const horizon = Math.min(Math.max(Number(req.body?.horizon) || 14, 1), 90);
-  const since = new Date(Date.now() - 400 * 864e5);
-  const match = buildMatch(q);
-  match.reportedAt = { ...(match.reportedAt || {}), $gte: match.reportedAt?.$gte && match.reportedAt.$gte > since ? match.reportedAt.$gte : since };
-  const rows = await Incident.aggregate([
-    { $match: match },
-    { $group: { _id: { $dateToString: { format: '%Y-%m-%d', ...localDate } }, count: { $sum: 1 } } },
-    { $sort: { _id: 1 } },
-  ]).allowDiskUse(true);
-  const history = rows.filter((r) => r._id).map((r) => ({ date: r._id, count: r.count }));
-  if (history.length < 3) throw httpError(400, 'Not enough daily history for these filters (need at least 3 days with incidents).');
-  // close the series at "today" so recent quiet days count as zero
-  const today = new Date().toISOString().slice(0, 10);
-  if (history[history.length - 1].date < today) history.push({ date: today, count: 0 });
-  res.json(await ml('/forecast', { history, horizon }));
+  const cacheKey = `ml:forecast:${JSON.stringify(q)}:${horizon}`;
+
+  const result = await swrCache.getOrRevalidate(cacheKey, async () => {
+    const match = buildMatch(q);
+    const isUnfiltered = Object.keys(match).length === 0;
+    let history = [];
+
+    if (isUnfiltered) {
+      try {
+        const { SummaryOverview } = require('../models/Summary');
+        const doc = await SummaryOverview.findById('global').lean();
+        if (doc && doc.temporal && doc.temporal.day && doc.temporal.day.series) {
+          history = doc.temporal.day.series.map((s) => ({ date: s.label, count: s.total }));
+        }
+      } catch (_) {}
+    }
+
+    if (!history.length) {
+      const since = new Date(Date.now() - 400 * 864e5);
+      match.reportedAt = { ...(match.reportedAt || {}), $gte: match.reportedAt?.$gte && match.reportedAt.$gte > since ? match.reportedAt.$gte : since };
+      const rows = await Incident.aggregate([
+        { $match: match },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', ...localDate } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+      ]).option({ maxTimeMS: 10000, allowDiskUse: true });
+      history = rows.filter((r) => r._id).map((r) => ({ date: r._id, count: r.count }));
+    }
+
+    if (history.length < 3) throw httpError(400, 'Not enough daily history for these filters (need at least 3 days with incidents).');
+    const today = new Date().toISOString().slice(0, 10);
+    if (history[history.length - 1].date < today) history.push({ date: today, count: 0 });
+
+    return await ml('/forecast', { history, horizon });
+  }, 60000, 300000);
+
+  res.json(result);
 }));
 
 module.exports = router;

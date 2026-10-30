@@ -138,3 +138,27 @@ export function ErrorBanner({ message, onRetry }) {
     </div>
   );
 }
+
+export function Skeleton({ className = '' }) {
+  return <div className={`animate-pulse rounded-2xl bg-slate-200/70 ${className}`} />;
+}
+
+export function CardSkeleton() {
+  return (
+    <div className="glass space-y-3 p-5">
+      <Skeleton className="h-4 w-28" />
+      <Skeleton className="h-9 w-40" />
+      <Skeleton className="h-3 w-52" />
+    </div>
+  );
+}
+
+export function TableSkeleton({ rows = 5 }) {
+  return (
+    <div className="space-y-2 p-4">
+      {Array.from({ length: rows }).map((_, i) => (
+        <Skeleton key={i} className="h-10 w-full rounded-xl" />
+      ))}
+    </div>
+  );
+}

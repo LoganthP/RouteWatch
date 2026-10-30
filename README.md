@@ -106,6 +106,7 @@ The website works without the ML service; only the AI features show a message as
 ## 5. Tests & Verification
 
 ```bash
+npm run check             # Verifies Backend, ML Service, and Frontend endpoints are healthy
 npm run test:api          # 86 API tests: every endpoint, datasets in 9 formats, role gates, ML pipelines
 npm run test:e2e          # Playwright E2E suite (45 tests across Desktop, Tablet, and Mobile devices)
 npm run test:all          # Complete end-to-end verification (runs API tests + Playwright E2E suite)

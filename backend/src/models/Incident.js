@@ -46,11 +46,8 @@ incidentSchema.index({ reportedAt: -1 });
 incidentSchema.index({ severity: 1, status: 1 });
 incidentSchema.index({ severity: 1, reportedAt: -1 });
 incidentSchema.index({ type: 1, reportedAt: -1 });
-incidentSchema.index({ type: 1 });
 incidentSchema.index({ area: 1, reportedAt: -1 });
-incidentSchema.index({ area: 1 });
 incidentSchema.index({ datasetId: 1, reportedAt: -1 });
-incidentSchema.index({ 'source.datasetId': 1 });
 incidentSchema.index(
   { fingerprint: 1 },
   { unique: true, partialFilterExpression: { fingerprint: { $type: 'string' } } }

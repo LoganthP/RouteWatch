@@ -119,7 +119,7 @@ export function FitBounds({ bbox, bounds, maxZoom = 15 }) {
 }
 
 /** Reports the visible box "w,s,e,n" and zoom after the user stops moving the map. */
-export function ViewportWatcher({ onChange, delay = 400 }) {
+export function ViewportWatcher({ onChange, delay = 250 }) {
   const map = useMap();
   const cb = useRef(onChange);
   cb.current = onChange;

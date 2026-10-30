@@ -28,10 +28,18 @@ async function recoverJobs() {
 
 const PORT = process.env.PORT || 5000;
 const ORIGIN = (process.env.CLIENT_ORIGIN || 'http://localhost:5173').split(',');
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/routewatch_db';
+const ML_SERVICE_URL = ML_SERVICE_URL;
 
+if (!process.env.MONGODB_URI) {
+  console.info('[config] MONGODB_URI not set; using local fallback: mongodb://127.0.0.1:27017/routewatch_db');
+}
 if (!process.env.JWT_SECRET) {
-  console.warn('[warn] JWT_SECRET missing — using an insecure development secret.');
+  console.warn('[config] JWT_SECRET missing in backend/.env; using default dev secret.');
   process.env.JWT_SECRET = 'dev-only-secret';
+}
+if (!process.env.ML_SERVICE_URL) {
+  console.info('[config] ML_SERVICE_URL not set; using default: http://127.0.0.1:8000');
 }
 
 const app = express();
@@ -66,7 +74,7 @@ app.set('io', io);
 
 process.on('unhandledRejection', (e) => console.error('[unhandledRejection]', e));
 
-connectDB(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/routewatch_db')
+connectDB(MONGODB_URI)
   .then(async () => {
     // ensure every schema index (incl. 2dsphere) exists
     await Promise.all(Object.values(mongoose.models).map((m) => m.syncIndexes()));

@@ -21,22 +21,70 @@ const BATCH = 2000;
 const MAX_REJECT_LINES = 50000;
 const jobs = new Map(); // datasetId → { cancel }
 
+function getAtlasDetection() {
+  const uri = process.env.MONGODB_URI || '';
+  const isAtlas = uri.includes('.mongodb.net') || uri.startsWith('mongodb+srv://');
+  const isAtlasM0 = isAtlas && (!process.env.ATLAS_TIER || process.env.ATLAS_TIER.toUpperCase() === 'M0');
+  const quota = isAtlasM0 ? 512 : Number(process.env.STORAGE_QUOTA_MB || process.env.DB_QUOTA_MB || 1024);
+  return {
+    isAtlas,
+    isAtlasM0,
+    tierName: isAtlas ? (isAtlasM0 ? 'MongoDB Atlas M0 (512 MB hard cap)' : `MongoDB Atlas ${process.env.ATLAS_TIER}`) : 'Local MongoDB Community Server',
+    quotaMB: quota,
+  };
+}
+
+async function uploadedFilesMB() {
+  let bytes = 0;
+  try {
+    const scan = (d) => {
+      if (!fs.existsSync(d)) return;
+      for (const item of fs.readdirSync(d)) {
+        const full = path.join(d, item);
+        try {
+          const st = fs.statSync(full);
+          if (st.isFile()) bytes += st.size;
+        } catch (_) {}
+      }
+    };
+    scan(DIRS.storage);
+    scan(DIRS.uploads);
+  } catch (_) {}
+  return bytes / (1024 * 1024);
+}
+
 async function storageMB() {
   const st = await mongoose.connection.db.stats();
-  return ((st.dataSize || 0) + (st.indexSize || 0)) / (1024 * 1024);
+  const dbMB = ((st.storageSize || 0) + (st.indexSize || 0)) / (1024 * 1024);
+  const filesMB = await uploadedFilesMB();
+  return dbMB + filesMB;
 }
 
 async function storageInfo() {
-  const usedMB = await storageMB();
+  const atlas = getAtlasDetection();
+  const st = await mongoose.connection.db.stats();
+  const dbStorageMB = +(((st.storageSize || 0) + (st.indexSize || 0)) / (1024 * 1024)).toFixed(2);
+  const filesMB = +(await uploadedFilesMB()).toFixed(2);
+  const usedMB = +(dbStorageMB + filesMB).toFixed(2);
+  const quotaMB = atlas.quotaMB;
   const count = await Incident.estimatedDocumentCount();
-  const st = await mongoose.connection.db.command({ collStats: Incident.collection.collectionName }).catch(() => null);
-  const perDoc = st && count ? ((st.size || 0) + (st.totalIndexSize || 0)) / count : 450;
+  const incStat = await mongoose.connection.db.command({ collStats: Incident.collection.collectionName }).catch(() => null);
+  const perDoc = incStat && count ? ((incStat.size || 0) + (incStat.totalIndexSize || 0)) / count : 450;
+  const percent = quotaMB ? +((usedMB / quotaMB) * 100).toFixed(1) : null;
+
   return {
-    usedMB: +usedMB.toFixed(2),
-    quotaMB: LIMITS.quotaMB,
-    percent: LIMITS.quotaMB ? +((usedMB / LIMITS.quotaMB) * 100).toFixed(1) : null,
+    usedMB,
+    dbStorageMB,
+    filesMB,
+    quotaMB,
+    percent,
     incidents: count,
     bytesPerIncident: Math.round(perDoc || 450),
+    isAtlasM0: atlas.isAtlasM0,
+    isAtlas: atlas.isAtlas,
+    tierName: atlas.tierName,
+    breakdown: `Database: ${dbStorageMB} MB, Files: ${filesMB} MB`,
+    warning: percent >= 90 ? 'Storage usage is over 90% of quota limit!' : percent >= 80 ? 'Storage usage is over 80% of quota limit.' : null,
   };
 }
 
@@ -78,6 +126,12 @@ async function runImport({ datasetId, user, io, options }) {
   const rejectPath = path.join(DIRS.reports, `${datasetId}.rejected.csv`);
   const rejectOut = fs.createWriteStream(rejectPath);
   rejectOut.write('row,source,reason,data\n');
+  const curStorage = await storageInfo();
+  const estRows = Number(options.scope?.limit) || ds.rowCount || 1000;
+  const estAdditionMB = (estRows * curStorage.bytesPerIncident) / (1024 * 1024);
+  if (curStorage.quotaMB > 0 && curStorage.usedMB + estAdditionMB > curStorage.quotaMB) {
+    throw httpError(413, `Import blocked: Estimated dataset size (${estAdditionMB.toFixed(1)} MB for ~${estRows} rows) would exceed storage quota of ${curStorage.quotaMB} MB (currently ${curStorage.usedMB} MB used).`);
+  }
   const p = { rowsRead: 0, imported: 0, skipped: 0, duplicates: 0, geocoded: 0, rate: 0, phase: 'reading' };
   let rejectLines = 0;
   const reject = (row, src, reason, raw) => {
@@ -225,6 +279,7 @@ async function runImport({ datasetId, user, io, options }) {
     note: note || undefined,
   });
   clearCache();
+  try { require('../summaryService').refreshSummaries().catch(() => {}); } catch (_) {}
   io?.emit('dataset:progress', { datasetId: String(datasetId), status, progress: p });
   io?.emit('dataset:imported', { datasetId: String(datasetId), name: ds.name, status, imported: p.imported, bbox: b.bbox });
   io?.emit('incidents:changed', { kind: 'dataset', datasetId: String(datasetId), imported: p.imported });
@@ -247,6 +302,7 @@ async function runDelete({ datasetId, user, io }) {
   await removeFile(path.join(DIRS.reports, `${datasetId}.rejected.csv`));
   await AuditLog.create({ action: 'DELETE_DATASET', actor: user?._id, actorName: user?.name || 'system', changes: { dataset: ds.name, deleted } });
   clearCache();
+  try { require('../summaryService').refreshSummaries().catch(() => {}); } catch (_) {}
   io?.emit('dataset:deleted', { datasetId: String(datasetId), deleted });
   io?.emit('incidents:changed', { kind: 'dataset-deleted', datasetId: String(datasetId), deleted });
 }
