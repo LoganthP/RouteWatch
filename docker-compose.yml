@@ -1,0 +1,12 @@
+# Optional: run MongoDB in Docker instead of installing it.
+#   docker compose up -d
+services:
+  mongo:
+    image: mongo:7
+    container_name: routewatch-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - routewatch-data:/data/db
+volumes:
+  routewatch-data:

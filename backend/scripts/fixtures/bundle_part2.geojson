@@ -1,0 +1,1 @@
+{"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[13.405,52.52]},"properties":{"kind":"Unfall","priority":"high","when":"2024-04-04T07:00:00Z"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[13.3777,52.5163]},"properties":{"kind":"Baustelle","priority":"low","when":"2024-04-05T12:00:00Z"}}]}

@@ -1,0 +1,7 @@
+"ID","Severity","Start_Time","Start_Lat","Start_Lng","Description","Street","City","County","State","Timezone"
+"A-1","3","2016-02-08 05:46:00","39.865147","-84.058723","Right lane blocked due to accident on I-70","I-70 E","Dayton","Montgomery","OH","US/Eastern"
+"A-2","2","2016-02-08 06:07:59","39.928059","-82.831184","Accident on Brice Rd","Brice Rd","Reynoldsburg","Franklin","OH","US/Eastern"
+"A-3","2","2016-02-08 06:49:27","39.063148","-84.032608","Accident on OH-32","State Route 32","Williamsburg","Clermont","OH","US/Eastern"
+"A-4","4","2016-02-08 07:23:34","39.747753","-84.205582","Fatal crash on I-75","I-75 S","Dayton","Montgomery","OH","US/Eastern"
+"A-5","3","not a date","39.627781","-84.188354","bad date row","Miamisburg Centerville Rd","Dayton","Montgomery","OH","US/Eastern"
+"A-6","2","2016-02-08 08:10:04","abc","","bad coordinates row","Main St","Nowhere","X","OH","US/Eastern"

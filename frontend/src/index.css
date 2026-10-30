@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light only; }
+html, body, #root { height: 100%; }
+body {
+  @apply font-sans text-ink antialiased;
+  background: #EEF6FF;
+  font-feature-settings: 'ss01';
+}
+h1, h2, h3, .font-display { font-family: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; }
+
+*:focus-visible { outline: 3px solid #2E9BFF; outline-offset: 2px; border-radius: 12px; }
+
+@layer components {
+  /* Glassmorphism: frosted translucent panel with a paper-thin white edge */
+  .glass {
+    @apply rounded-[28px] border border-white/80 bg-white/60 shadow-glass;
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+  }
+  .glass-strong {
+    @apply rounded-[24px] border border-white bg-white/85 shadow-glass;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  /* Claymorphism buttons: inflated, matte, with inner highlight + shadow */
+  .clay-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-sky px-5 py-3 font-semibold text-white shadow-clay transition-[filter] disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .clay-btn:hover { filter: brightness(1.05); }
+  .clay-btn-sun { @apply clay-btn bg-sun text-ink shadow-clay-sun; }
+  .clay-btn-white { @apply clay-btn bg-white text-ink shadow-clay-white; }
+  .clay-btn-sm { @apply px-3.5 py-2 text-sm rounded-xl; }
+
+  /* Neumorphic inputs: carved into the surface */
+  .neu-field {
+    @apply w-full rounded-2xl border-0 bg-[#EEF4FC] px-4 py-3 text-ink shadow-neu-in outline-none placeholder:text-ink-faint;
+  }
+  .neu-field:focus { box-shadow: inset 4px 4px 9px #d2dcec, inset -4px -4px 9px #ffffff, 0 0 0 3px rgba(46,155,255,.35); }
+  .label { @apply mb-1.5 block text-sm font-semibold text-ink-soft; }
+
+  /* Neumorphic toggle chip: extruded when off, pressed (inset) when on */
+  .neu-chip {
+    @apply cursor-pointer select-none rounded-full bg-[#F1F6FD] px-3.5 py-1.5 text-sm font-semibold text-ink-soft shadow-neu transition-all duration-200;
+  }
+  .neu-chip[data-on='true'] { @apply text-ink shadow-neu-in; }
+
+  /* Road lane-marking motif */
+  .lane {
+    height: 4px;
+    background: repeating-linear-gradient(90deg, #FFC93C 0 18px, transparent 18px 30px);
+    border-radius: 4px;
+  }
+}
+
+/* ---------- Leaflet tweaks ---------- */
+.leaflet-container { font-family: Manrope, system-ui, sans-serif; background: #E8F1FB; border-radius: inherit; }
+.leaflet-popup-content-wrapper { border-radius: 18px; box-shadow: 0 18px 40px -16px rgba(30,42,68,.35); }
+.leaflet-popup-content { margin: 14px 16px; }
+.leaflet-control-zoom a { border-radius: 10px !important; }
+.leaflet-bar { border: none !important; box-shadow: 0 8px 20px -10px rgba(30,42,68,.4) !important; border-radius: 12px !important; overflow: hidden; }
+.pin-drop { filter: drop-shadow(0 6px 8px rgba(30,42,68,.35)); }
+
+/* thin scrollbars inside panels */
+.scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroll-thin::-webkit-scrollbar-thumb { background: #c9d7ec; border-radius: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-drift { animation: none; }
+}
+
+@media (max-height: 750px) {
+  [data-testid="sidebar-glass"] nav a {
+    padding-top: 0.375rem !important;
+    padding-bottom: 0.375rem !important;
+    font-size: 13.5px !important;
+  }
+}

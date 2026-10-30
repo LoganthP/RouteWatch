@@ -1,0 +1,4 @@
+latitude,longitude,time,category,severity,city
+48.8566,2.3522,2024-04-01 08:30,Accident,3,Paris
+48.8606,2.3376,2024-04-02 18:05,Traffic jam,1,Paris
+48.8738,2.2950,2024-04-03 09:45,Pothole,2,Paris

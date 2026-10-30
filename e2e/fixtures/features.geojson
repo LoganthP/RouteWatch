@@ -1,0 +1,37 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          76.6552,
+          12.3052
+        ]
+      },
+      "properties": {
+        "type": "Accident",
+        "severity": "Critical",
+        "description": "GeoJSON accident point",
+        "reportedAt": "2024-03-04T10:00:00Z"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          76.66,
+          12.311
+        ]
+      },
+      "properties": {
+        "type": "Hazard",
+        "severity": "Medium",
+        "description": "GeoJSON hazard point",
+        "reportedAt": "2024-03-04T12:00:00Z"
+      }
+    }
+  ]
+}

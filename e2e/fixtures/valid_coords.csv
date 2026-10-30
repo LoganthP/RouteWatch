@@ -1,0 +1,6 @@
+Start_Lat,Start_Lng,Start_Time,Severity,Description,City,State
+12.3052,76.6552,2024-03-01 08:30:00,3,Accident near City Center,Mysuru,KA
+12.3110,76.6600,2024-03-01 09:15:00,2,Slow moving traffic,Mysuru,KA
+12.2980,76.6450,2024-03-01 10:00:00,4,Multi-vehicle collision,Mysuru,KA
+12.3150,76.6700,2024-03-01 11:20:00,1,Minor stall,Mysuru,KA
+12.3020,76.6500,2024-03-01 12:45:00,3,Pothole hazard,Mysuru,KA
