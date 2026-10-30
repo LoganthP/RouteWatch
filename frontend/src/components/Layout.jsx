@@ -10,7 +10,7 @@ import { getSocket } from '../api/socket';
 import ErrorBoundary from './ErrorBoundary';
 
 const NAV = [
-  { to: '/', label: 'Dashboard', icon: LayoutGrid, end: true },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutGrid, end: true },
   { to: '/map', label: 'Live map', icon: MapIcon },
   { to: '/nearby', label: 'Nearby search', icon: Radar },
   { to: '/report', label: 'Report incident', icon: FilePlus2 },

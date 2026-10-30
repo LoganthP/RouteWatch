@@ -29,7 +29,7 @@ async function recoverJobs() {
 const PORT = process.env.PORT || 5000;
 const ORIGIN = (process.env.CLIENT_ORIGIN || 'http://localhost:5173').split(',');
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/routewatch_db';
-const ML_SERVICE_URL = ML_SERVICE_URL;
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://127.0.0.1:8000';
 
 if (!process.env.MONGODB_URI) {
   console.info('[config] MONGODB_URI not set; using local fallback: mongodb://127.0.0.1:27017/routewatch_db');
@@ -55,6 +55,7 @@ app.get('/api/health', (_req, res) =>
 app.get('/api/dashboard', asyncHandler(async (_req, res) =>
   res.json(await require('./services/analytics').getDashboardStats())
 ));
+app.use('/api/public', require('./routes/public'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/incidents', require('./routes/incidents'));
 app.use('/api/analytics', require('./routes/analytics'));
