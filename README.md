@@ -348,25 +348,29 @@ Create or edit **`backend/.env`**:
 ```env
 # ───────────── Server ─────────────
 PORT=5000
+CLIENT_ORIGIN=http://localhost:5173
 
 # ───────────── Database ─────────────
-# Option A: MongoDB Atlas (keep /routewatch_db before the "?")
-MONGODB_URI=mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/routewatch_db?retryWrites=true&w=majority
+# Option A: local MongoDB or Docker (run "docker compose up -d" first)
+MONGODB_URI=mongodb://127.0.0.1:27017/routewatch_db
 
-# Option B: local MongoDB or Docker (run "docker compose up -d" first)
-# MONGODB_URI=mongodb://127.0.0.1:27017/routewatch_db
+# Option B: MongoDB Atlas (keep /routewatch_db before the "?")
+# MONGODB_URI=mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/routewatch_db?retryWrites=true&w=majority
 
 # ───────────── Auth ─────────────
 # npm run setup generates this for you. To make your own:
 # node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 JWT_SECRET=replace_with_a_long_random_string
+JWT_EXPIRES_IN=10d
 
 # ───────────── ML service ─────────────
 ML_SERVICE_URL=http://127.0.0.1:8000
 
-# ───────────── Uploads and import limits ─────────────
+# ───────────── Dataset upload and import limits ─────────────
 MAX_UPLOAD_MB=4096
 MAX_INMEMORY_MB=200
+MAX_ZIP_ENTRIES=50
+MAX_UNCOMPRESSED_MB=8192
 MAX_IMPORT_ROWS_ADMIN=500000
 MAX_IMPORT_ROWS_CITIZEN=500
 
@@ -434,12 +438,14 @@ Press **Ctrl + C** to stop everything.
 
 ```bash
 cd ml-service
+python -m venv .venv
 
 # activate the virtual environment
 .venv\Scripts\Activate.ps1          # Windows PowerShell
 # .venv\Scripts\activate.bat        # Windows cmd
 # source .venv/bin/activate         # macOS / Linux
 
+pip install -r requirements.txt
 uvicorn app:app --host 127.0.0.1 --port 8000
 # add --reload while developing
 ```
