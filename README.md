@@ -27,7 +27,7 @@
 ![A11y](https://img.shields.io/badge/WCAG-2.1%20AA-blue?style=flat-square)
 ![Dashboard](https://img.shields.io/badge/Dashboard%20API-%3C35%20ms-orange?style=flat-square)
 
-**[Quick Start](#-quick-start)** · **[Architecture](#-architecture)** · **[AI / ML](#-ai--ml-engine)** · **[Setup Guide](#-detailed-setup-guide)** · **[Troubleshooting](#-troubleshooting)**
+**[Quick Start](#quick-start)** · **[Architecture](#architecture)** · **[AI / ML](#ai-ml-engine)** · **[Setup Guide](#detailed-setup-guide)** · **[Troubleshooting](#troubleshooting)**
 
 </div>
 
@@ -88,6 +88,8 @@
 | **DevOps** | Docker Compose, `concurrently`, npm scripts | One-command setup and startup |
 
 <img src="assets/divider.svg" width="100%" alt=""/>
+
+<a id="architecture"></a>
 
 ## 🏗️ Architecture
 
@@ -236,6 +238,8 @@ erDiagram
 
 <img src="assets/divider.svg" width="100%" alt=""/>
 
+<a id="ai-ml-engine"></a>
+
 ## 🧠 AI / ML Engine
 
 ### 1. Hotspot detection: DBSCAN
@@ -262,6 +266,8 @@ erDiagram
 
 <img src="assets/divider.svg" width="100%" alt=""/>
 
+<a id="quick-start"></a>
+
 ## ⚡ Quick Start
 
 ```bash
@@ -284,6 +290,8 @@ Open **http://localhost:5173** and sign in:
 > These are demo credentials for local use only. Change them before deploying anywhere public.
 
 <img src="assets/divider.svg" width="100%" alt=""/>
+
+<a id="detailed-setup-guide"></a>
 
 ## 🛠️ Detailed Setup Guide
 
@@ -555,6 +563,8 @@ RouteWatch/
 - The system analyses **reported incidents**. It does not measure live traffic speed.
 - Scanned PDFs (images without text) and legacy `.xls` files cannot be read. Export them as CSV or `.xlsx`.
 - Map tiles and place search use OpenStreetMap's free public services, which suit a college project but not heavy production traffic.
+
+<a id="troubleshooting"></a>
 
 ## 🩺 Troubleshooting
 
